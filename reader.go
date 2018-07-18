@@ -16,6 +16,9 @@ var (
 	ErrInvalidReader = errors.New("buffer reader has become invalid (out of sync with buffer)")
 )
 
+// Read will read data from the ringbuffer to the provided buffer. If no
+// new data is available, Read() will either return io.EOF (a later call may
+// return new data), or block until data becomes available (if set blocking).
 func (r *Reader) Read(p []byte) (int, error) {
 	n := int64(len(p))
 

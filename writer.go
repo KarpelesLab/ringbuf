@@ -34,6 +34,13 @@ func New(size int64) (*Writer, error) {
 	return w, nil
 }
 
+// Reader returns a new reader positioned at the buffer's oldest available
+// position. The reader can be moved to the most recent position by calling
+// its Reset() method.
+//
+// If there isn't enough data to read, the reader's read method will return
+// error io.EOF. If you need Read() to not return until new data is available,
+// use BlockingReader()
 func (w *Writer) Reader() *Reader {
 	cycle := w.cycle
 	pos := w.wPos
@@ -51,6 +58,8 @@ func (w *Writer) Reader() *Reader {
 	}
 }
 
+// BlockingReader returns a new reader positioned at the buffer's oldest 
+// available position which reads will block if no new data is available.
 func (w *Writer) BlockingReader() *Reader {
 	cycle := w.cycle
 	pos := w.wPos
