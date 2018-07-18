@@ -32,6 +32,23 @@ func New(size int64) (*Writer, error) {
 	return w, nil
 }
 
+func (w *Writer) Reader() *Reader {
+	cycle := w.cycle
+	pos := w.wPos
+	if cycle > 0 {
+		cycle = cycle - 1
+	} else {
+		pos = 0
+	}
+
+	return &Reader{
+		w:     w,
+		block: false,
+		cycle: cycle,
+		rPos:  pos,
+	}
+}
+
 // Write to buffer, will always succeed
 func (w *Writer) Write(buf []byte) (int, error) {
 	n := int64(len(buf))
@@ -43,7 +60,8 @@ func (w *Writer) Write(buf []byte) (int, error) {
 	if n > w.size {
 		// volume of written data is larger than our buffer (NOTE: will invalidate ALL existing readers)
 		cnt := n / w.size
-		w.cycle += cnt
+		w.cycle += cnt - 1
+		w.wPos += n % w.size
 		// only use relevant part of buf
 		buf = buf[n-w.size:]
 	}
@@ -53,6 +71,7 @@ func (w *Writer) Write(buf []byte) (int, error) {
 	copy(w.data[w.wPos:], buf)
 	if int64(len(buf)) > remain {
 		copy(w.data, buf[remain:])
+		w.cycle += 1
 	}
 
 	// update cursor position
