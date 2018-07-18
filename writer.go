@@ -17,6 +17,7 @@ type Writer struct {
 	wPos  int64
 	cycle int64
 	mutex sync.RWMutex
+	cond  *sync.Cond
 }
 
 func New(size int64) (*Writer, error) {
@@ -28,6 +29,7 @@ func New(size int64) (*Writer, error) {
 		data: make([]byte, size),
 		size: size,
 	}
+	w.cond = sync.NewCond(w.mutex.RLocker())
 
 	return w, nil
 }
@@ -44,6 +46,23 @@ func (w *Writer) Reader() *Reader {
 	return &Reader{
 		w:     w,
 		block: false,
+		cycle: cycle,
+		rPos:  pos,
+	}
+}
+
+func (w *Writer) BlockingReader() *Reader {
+	cycle := w.cycle
+	pos := w.wPos
+	if cycle > 0 {
+		cycle = cycle - 1
+	} else {
+		pos = 0
+	}
+
+	return &Reader{
+		w:     w,
+		block: true,
 		cycle: cycle,
 		rPos:  pos,
 	}
@@ -76,6 +95,8 @@ func (w *Writer) Write(buf []byte) (int, error) {
 
 	// update cursor position
 	w.wPos = ((w.wPos + int64(len(buf))) % w.size)
+
+	w.cond.Broadcast()
 	return int(n), nil
 }
 

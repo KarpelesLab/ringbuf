@@ -3,6 +3,7 @@ package ringbuf
 import (
 	"io"
 	"testing"
+	"time"
 )
 
 func TestBuf(t *testing.T) {
@@ -65,4 +66,31 @@ func TestBuf(t *testing.T) {
 		t.Errorf("failed buffer overflow test, expected reader to be invalid, got n=%d err=%v", n, err)
 	}
 
+	// testing blocking reader
+	w, err = New(64)
+	if err != nil {
+		t.Errorf("failed to initialize buffer")
+		return
+	}
+
+	r = w.BlockingReader()
+	c := make(chan struct{})
+	d := make(chan struct{})
+
+	go func() {
+		close(c)
+		n, err = r.Read(rbuf[:3])
+		close(d)
+	}()
+	// make sure we entered the gorouting
+	<-c
+
+	time.Sleep(10 * time.Millisecond)
+
+	w.Write([]byte("foo"))
+	<-d
+
+	if n != 3 || err != nil || string(rbuf[:3]) != "foo" {
+		t.Errorf("failed blocking buffer read of 3 bytes, expected n=3, got n=%d err=%v", n, err)
+	}
 }

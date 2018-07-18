@@ -22,6 +22,12 @@ func (r *Reader) Read(p []byte) (int, error) {
 	r.w.mutex.RLock()
 	defer r.w.mutex.RUnlock()
 
+	if r.block {
+		for r.cycle == r.w.cycle && r.rPos >= r.w.wPos {
+			r.w.cond.Wait()
+		}
+	}
+
 	if r.cycle == r.w.cycle {
 		// easy
 		if r.rPos >= r.w.wPos {
