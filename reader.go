@@ -69,3 +69,12 @@ func (r *Reader) Read(p []byte) (int, error) {
 
 	return 0, ErrInvalidReader
 }
+
+// Reset sets the reader's position after the writer's latest write.
+func (r *Reader) Reset() {
+	r.w.mutex.RLock()
+	defer r.w.mutex.RUnlock()
+
+	r.cycle = r.w.cycle
+	r.rPos = r.w.wPos
+}
