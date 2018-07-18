@@ -16,9 +16,8 @@ Useful for stuff like storing logs without memory going overboard.
 	log.SetOutput(l)
 
 	// output log to stdout
+	// (duplicate this to also output to files/etc)
 	go io.Copy(os.Stdout, l.BlockingReader())
-
-	// (duplicate this to show anytime the log)
 
 	func dmesg() ([]byte, error) {
 		// return up to last 1MB of log entries
