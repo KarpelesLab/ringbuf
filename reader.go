@@ -13,7 +13,7 @@ type Reader struct {
 }
 
 var (
-	ErrInvalidReader = errors.New("buffer reader has become invalid (out of sync with buffer)")
+	ErrStaleReader = errors.New("ringbuffer reader is stale (didn't read fast enough - do you need a larger buffer?)")
 )
 
 // Read will read data from the ringbuffer to the provided buffer. If no
@@ -52,7 +52,7 @@ func (r *Reader) Read(p []byte) (int, error) {
 	if r.cycle == r.w.cycle-1 {
 		// remaining bytes in buffer
 		if r.w.wPos > r.rPos {
-			return 0, ErrInvalidReader
+			return 0, ErrStaleReader
 		}
 
 		avail := r.w.size - r.w.wPos
@@ -76,7 +76,7 @@ func (r *Reader) Read(p []byte) (int, error) {
 		return int(avail) + nextN, err
 	}
 
-	return 0, ErrInvalidReader
+	return 0, ErrStaleReader
 }
 
 // Reset sets the reader's position after the writer's latest write.

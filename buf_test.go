@@ -62,7 +62,7 @@ func TestBuf(t *testing.T) {
 	w.Write([]byte("helloworld2"))
 
 	n, err = r.Read(rbuf)
-	if err != ErrInvalidReader {
+	if err != ErrStaleReader {
 		t.Errorf("failed buffer overflow test, expected reader to be invalid, got n=%d err=%v", n, err)
 	}
 

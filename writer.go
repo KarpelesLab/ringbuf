@@ -58,7 +58,7 @@ func (w *Writer) Reader() *Reader {
 	}
 }
 
-// BlockingReader returns a new reader positioned at the buffer's oldest 
+// BlockingReader returns a new reader positioned at the buffer's oldest
 // available position which reads will block if no new data is available.
 func (w *Writer) BlockingReader() *Reader {
 	cycle := w.cycle
