@@ -7,8 +7,8 @@ writer.
 This code is thread safe and allows either standard readers, or blocking
 readers that will wait when no more data is available (this uses
 [sync.Cond](https://golang.org/pkg/sync/#Cond) with [RLocker](https://golang.org/pkg/sync/#RWMutex.RLocker)
-meaning multiple readers will resume reading in parallel, allowing for using
-the most out of goroutines.
+meaning multiple readers will resume reading in parallel, allowing
+the most out of goroutines).
 
 Originally this was written as a buffer for [log](https://golang.org/pkg/log/)
 allowing to redirect output from logs to multiple targets at the same time
