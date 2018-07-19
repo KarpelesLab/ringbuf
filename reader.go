@@ -6,10 +6,11 @@ import (
 )
 
 type Reader struct {
-	w     *Writer
-	rPos  int64
-	cycle int64
-	block bool
+	w        *Writer
+	rPos     int64
+	cycle    int64
+	block    bool
+	autoSkip bool
 }
 
 var (
@@ -31,28 +32,25 @@ func (r *Reader) Read(p []byte) (int, error) {
 		}
 	}
 
-	if r.cycle == r.w.cycle {
-		// easy
-		if r.rPos >= r.w.wPos {
-			// > shouldn't happen
-			return 0, io.EOF
+	if r.cycle < r.w.cycle-1 {
+		if r.autoSkip {
+			// skip missed data, resume as far back as possible
+			r.cycle = r.w.cycle - 1
+			r.rPos = r.w.wPos
+		} else {
+			return 0, ErrStaleReader
 		}
-
-		avail := r.w.wPos - r.rPos
-
-		if n > avail {
-			n = avail
-		}
-
-		copy(p, r.w.data[r.rPos:r.rPos+n])
-		r.rPos += n
-		return int(n), nil
 	}
 
 	if r.cycle == r.w.cycle-1 {
 		// remaining bytes in buffer
 		if r.w.wPos > r.rPos {
-			return 0, ErrStaleReader
+			if r.autoSkip {
+				// skip
+				r.rPos = r.w.wPos
+			} else {
+				return 0, ErrStaleReader
+			}
 		}
 
 		avail := r.w.size - r.w.wPos
@@ -76,7 +74,25 @@ func (r *Reader) Read(p []byte) (int, error) {
 		return int(avail) + nextN, err
 	}
 
-	return 0, ErrStaleReader
+	if r.cycle != r.w.cycle {
+		return 0, errors.New("this should not happen, reader is in the future?")
+	}
+
+	// easy
+	if r.rPos >= r.w.wPos {
+		// > shouldn't happen
+		return 0, io.EOF
+	}
+
+	avail := r.w.wPos - r.rPos
+
+	if n > avail {
+		n = avail
+	}
+
+	copy(p, r.w.data[r.rPos:r.rPos+n])
+	r.rPos += n
+	return int(n), nil
 }
 
 // Reset sets the reader's position after the writer's latest write.
@@ -86,4 +102,11 @@ func (r *Reader) Reset() {
 
 	r.cycle = r.w.cycle
 	r.rPos = r.w.wPos
+}
+
+// SetAutoSkip allows enabling auto skip, when this reader hasn't been reading
+// fast enough and missed some data. This is generally unsafe, but in some
+// cases may be useful to avoid having to handle stale readers.
+func (r *Reader) SetAutoSkip(enabled bool) {
+	r.autoSkip = enabled
 }
