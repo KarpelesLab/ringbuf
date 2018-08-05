@@ -106,6 +106,11 @@ func (r *Reader) Read(p []byte) (int, error) {
 	return int(n), nil
 }
 
+// Close signals this reader will not be used anymore and has finished
+// processing, and should be called after a reader is not useful anymore.
+//
+// If using Writer.Close then calling Close on readers is mandatory, failing
+// to do so will cause a deadlock.
 func (r *Reader) Close() error {
 	if atomic.AddUint64(r.closed, 1) != 1 {
 		return nil

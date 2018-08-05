@@ -141,6 +141,15 @@ func (w *Writer) TotalWritten() int64 {
 	return w.cycle*w.size + w.wPos
 }
 
+// Close will cause all readers to return EOF once they have read the whole
+// buffer and will wait until all readers have called Close(). If you do not
+// need EOF synchronization you can ignore the whole close system as it is not
+// used to free any resources, but if you use ringbuf as an output buffer, for
+// example, it will enable waiting for writes to have completed prior to
+// ending the program.
+//
+// Note that if any reader failed to call close prior to end and being freed
+// this will cause a deadlock.
 func (w *Writer) Close() error {
 	w.mutex.Lock()
 	if w.closed {
