@@ -30,10 +30,16 @@ to fetch the last X MB of entries (as large as the buffer is).
 
 	// output log to stdout
 	// (duplicate this to also output to files/etc)
-	go io.Copy(os.Stdout, l.BlockingReader())
+	go func() {
+		r := l.BlockingReader()
+		defer r.Close()
+		io.Copy(os.Stdout, r)
+	}()
 
 	func dmesg() ([]byte, error) {
 		// return up to last 1MB of log entries
-		return ioutil.ReadAll(l.Reader())
+		r := l.Reader()
+		defer r.Close()
+		return ioutil.ReadAll(r)
 	}
 ```
