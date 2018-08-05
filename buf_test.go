@@ -81,6 +81,7 @@ func TestBuf(t *testing.T) {
 		close(c)
 		n, err = r.Read(rbuf[:3])
 		close(d)
+		r.Close()
 	}()
 	// make sure we entered the gorouting
 	<-c
@@ -93,4 +94,7 @@ func TestBuf(t *testing.T) {
 	if n != 3 || err != nil || string(rbuf[:3]) != "foo" {
 		t.Errorf("failed blocking buffer read of 3 bytes, expected n=3, got n=%d err=%v", n, err)
 	}
+
+	// if test hangs there, there's a problem
+	w.Close()
 }

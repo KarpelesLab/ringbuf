@@ -2,6 +2,7 @@ package ringbuf
 
 import (
 	"errors"
+	"io"
 	"sync"
 )
 
@@ -16,8 +17,11 @@ type Writer struct {
 	size  int64
 	wPos  int64
 	cycle int64
-	mutex sync.RWMutex
-	cond  *sync.Cond
+
+	closed bool
+	mutex  sync.RWMutex
+	cond   *sync.Cond
+	wg     sync.WaitGroup
 }
 
 func New(size int64) (*Writer, error) {
@@ -42,38 +46,54 @@ func New(size int64) (*Writer, error) {
 // error io.EOF. If you need Read() to not return until new data is available,
 // use BlockingReader()
 func (w *Writer) Reader() *Reader {
+	if w.closed {
+		return nil
+	}
+
 	cycle := w.cycle
 	pos := w.wPos
+	// rewind
 	if cycle > 0 {
 		cycle = cycle - 1
 	} else {
 		pos = 0
 	}
 
+	w.wg.Add(1)
+
 	return &Reader{
-		w:     w,
-		block: false,
-		cycle: cycle,
-		rPos:  pos,
+		w:      w,
+		block:  false,
+		cycle:  cycle,
+		rPos:   pos,
+		closed: new(uint64),
 	}
 }
 
 // BlockingReader returns a new reader positioned at the buffer's oldest
 // available position which reads will block if no new data is available.
 func (w *Writer) BlockingReader() *Reader {
+	if w.closed {
+		return nil
+	}
+
 	cycle := w.cycle
 	pos := w.wPos
+	// rewind
 	if cycle > 0 {
 		cycle = cycle - 1
 	} else {
 		pos = 0
 	}
 
+	w.wg.Add(1)
+
 	return &Reader{
-		w:     w,
-		block: true,
-		cycle: cycle,
-		rPos:  pos,
+		w:      w,
+		block:  true,
+		cycle:  cycle,
+		rPos:   pos,
+		closed: new(uint64),
 	}
 }
 
@@ -84,6 +104,10 @@ func (w *Writer) Write(buf []byte) (int, error) {
 	// lock buffer while writing
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
+
+	if w.closed {
+		return 0, io.ErrClosedPipe
+	}
 
 	if n > w.size {
 		// volume of written data is larger than our buffer (NOTE: will invalidate ALL existing readers)
@@ -115,4 +139,23 @@ func (w *Writer) Size() int64 {
 
 func (w *Writer) TotalWritten() int64 {
 	return w.cycle*w.size + w.wPos
+}
+
+func (w *Writer) Close() error {
+	w.mutex.Lock()
+	if w.closed {
+		w.mutex.Unlock()
+		// calling close multiple times isn't an error
+		return nil
+	}
+	w.closed = true
+
+	// wake all readers (they will really start moving after the unlock)
+	w.cond.Broadcast()
+
+	w.mutex.Unlock()
+
+	// wait for everyone to complete
+	w.wg.Wait()
+	return nil
 }

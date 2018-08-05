@@ -3,6 +3,7 @@ package ringbuf
 import (
 	"errors"
 	"io"
+	"sync/atomic"
 )
 
 type Reader struct {
@@ -11,6 +12,7 @@ type Reader struct {
 	cycle    int64
 	block    bool
 	autoSkip bool
+	closed   *uint64
 }
 
 var (
@@ -21,6 +23,11 @@ var (
 // new data is available, Read() will either return io.EOF (a later call may
 // return new data), or block until data becomes available (if set blocking).
 func (r *Reader) Read(p []byte) (int, error) {
+	if *r.closed > 0 {
+		// you can't read from a reader after calling Close on it
+		return 0, io.ErrClosedPipe
+	}
+
 	n := int64(len(p))
 
 	r.w.mutex.RLock()
@@ -28,6 +35,10 @@ func (r *Reader) Read(p []byte) (int, error) {
 
 	if r.block {
 		for r.cycle == r.w.cycle && r.rPos >= r.w.wPos {
+			if r.w.closed {
+				r.block = false
+				break
+			}
 			r.w.cond.Wait()
 		}
 	}
@@ -93,6 +104,15 @@ func (r *Reader) Read(p []byte) (int, error) {
 	copy(p, r.w.data[r.rPos:r.rPos+n])
 	r.rPos += n
 	return int(n), nil
+}
+
+func (r *Reader) Close() error {
+	if atomic.AddUint64(r.closed, 1) != 1 {
+		return nil
+	}
+
+	r.w.wg.Done()
+	return nil
 }
 
 // Reset sets the reader's position after the writer's latest write.
