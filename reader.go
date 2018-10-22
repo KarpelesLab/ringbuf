@@ -64,7 +64,7 @@ func (r *Reader) Read(p []byte) (int, error) {
 			}
 		}
 
-		avail := r.w.size - r.w.wPos
+		avail := r.w.size - r.rPos
 		if avail >= n {
 			copy(p, r.w.data[r.rPos:r.rPos+n])
 			r.rPos += n

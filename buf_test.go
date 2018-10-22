@@ -98,3 +98,57 @@ func TestBuf(t *testing.T) {
 	// if test hangs there, there's a problem
 	w.Close()
 }
+
+func TestCrash(t *testing.T) {
+	rbuf := make([]byte, 32)
+
+	w, err := New(10)
+	if err != nil {
+		t.Errorf("failed to initialize buffer")
+		return
+	}
+
+	r := w.Reader()
+
+	w.Write([]byte("hello"))
+
+	n, err := r.Read(rbuf)
+	if n != 5 || err != nil || string(rbuf[:5]) != "hello" {
+		t.Errorf("failed simple test, expected to read back hello, got n=%d err=%v", n, err)
+	}
+
+	w.Write([]byte("world!!!"))
+
+	// this will crash in v0.1.1 because of a bad variable usage
+	n, err = r.Read(rbuf[:6])
+	if n != 6 || err != nil || string(rbuf[:6]) != "world!" {
+		t.Errorf("failed simple test, expected to read back world, got n=%d err=%v", n, err)
+	}
+}
+
+func TestShort(t *testing.T) {
+	rbuf := make([]byte, 5)
+
+	w, err := New(10)
+	if err != nil {
+		t.Errorf("failed to initialize buffer")
+		return
+	}
+
+	r := w.Reader()
+
+	w.Write([]byte("hello"))
+
+	n, err := r.Read(rbuf)
+	if n != 5 || err != nil || string(rbuf) != "hello" {
+		t.Errorf("failed simple test, expected to read back hello, got n=%d err=%v", n, err)
+	}
+
+	w.Write([]byte("world"))
+
+	// this returns io.EOF in v0.1.1 because cycle is not incremented on writes ending exactly at ring buffer end
+	n, err = r.Read(rbuf)
+	if n != 5 || err != nil || string(rbuf) != "world" {
+		t.Errorf("failed simple test, expected to read back world, got n=%d err=%v", n, err)
+	}
+}

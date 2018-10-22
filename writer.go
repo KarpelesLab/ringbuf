@@ -124,6 +124,8 @@ func (w *Writer) Write(buf []byte) (int, error) {
 	if int64(len(buf)) > remain {
 		copy(w.data, buf[remain:])
 		w.cycle += 1
+	} else if int64(len(buf)) == remain {
+		w.cycle += 1
 	}
 
 	// update cursor position
